@@ -1,4 +1,4 @@
-import { env, isLinkedInConfigured } from "./env";
+import { env } from "./env";
 import type { Audience, LaunchResult } from "./types";
 
 /**
@@ -10,13 +10,20 @@ import type { Audience, LaunchResult } from "./types";
  *   3. Create a creative referencing the image + tracked destination URL.
  *   4. Flip the campaign to ACTIVE to launch.
  *
- * When credentials are absent the client runs in "dry-run" mode and returns
- * deterministic mock ids, so the whole app is exercisable without a live
- * LinkedIn app. See README for the required env vars and OAuth scopes
- * (r_ads, rw_ads).
+ * Credentials are passed in per-launch (resolved from the user's connection or
+ * the env fallback). When they're absent/incomplete the client runs in
+ * "dry-run" mode and returns deterministic mock ids, so the whole app is
+ * exercisable without a live LinkedIn app. See LINKEDIN_SETUP.md.
  */
 
 const API_BASE = "https://api.linkedin.com/rest";
+
+export interface LinkedInCredentials {
+  accessToken: string;
+  adAccountId: string;
+  organizationUrn: string;
+  apiVersion?: string;
+}
 
 export interface LaunchParams {
   campaignName: string;
@@ -27,10 +34,19 @@ export interface LaunchParams {
   imageUrl: string;
 }
 
+export function credentialsComplete(
+  creds: Partial<LinkedInCredentials> | null | undefined,
+): creds is LinkedInCredentials {
+  return Boolean(
+    creds?.accessToken && creds.adAccountId && creds.organizationUrn,
+  );
+}
+
 export async function launchCampaign(
   params: LaunchParams,
+  creds?: Partial<LinkedInCredentials> | null,
 ): Promise<LaunchResult> {
-  if (!isLinkedInConfigured()) {
+  if (!credentialsComplete(creds)) {
     return {
       campaignId: `dry-run-campaign-${Date.now()}`,
       creativeId: `dry-run-creative-${Date.now()}`,
@@ -38,34 +54,31 @@ export async function launchCampaign(
     };
   }
 
-  const assetUrn = await uploadImageAsset(params.imageUrl);
-  const campaignUrn = await createCampaign(params);
-  const creativeUrn = await createCreative(campaignUrn, assetUrn, params);
-  await activateCampaign(campaignUrn);
+  const assetUrn = await uploadImageAsset(creds, params.imageUrl);
+  const campaignUrn = await createCampaign(creds, params);
+  const creativeUrn = await createCreative(creds, campaignUrn, assetUrn, params);
+  await activateCampaign(creds, campaignUrn);
 
-  return {
-    campaignId: campaignUrn,
-    creativeId: creativeUrn,
-    dryRun: false,
-  };
+  return { campaignId: campaignUrn, creativeId: creativeUrn, dryRun: false };
 }
 
-function headers(): Record<string, string> {
+function headers(creds: LinkedInCredentials): Record<string, string> {
   return {
-    Authorization: `Bearer ${env.linkedin.accessToken}`,
+    Authorization: `Bearer ${creds.accessToken}`,
     "Content-Type": "application/json",
     "X-Restli-Protocol-Version": "2.0.0",
-    "LinkedIn-Version": env.linkedin.apiVersion,
+    "LinkedIn-Version": creds.apiVersion ?? env.linkedin.apiVersion,
   };
 }
 
 async function liFetch(
+  creds: LinkedInCredentials,
   path: string,
   init: RequestInit,
 ): Promise<Response> {
   const res = await fetch(`${API_BASE}${path}`, {
     ...init,
-    headers: { ...headers(), ...(init.headers ?? {}) },
+    headers: { ...headers(creds), ...(init.headers ?? {}) },
   });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
@@ -76,16 +89,19 @@ async function liFetch(
   return res;
 }
 
-const accountUrn = () =>
-  `urn:li:sponsoredAccount:${env.linkedin.adAccountId}`;
+const accountUrn = (creds: LinkedInCredentials) =>
+  `urn:li:sponsoredAccount:${creds.adAccountId}`;
 
 /** Register + upload the creative image, returning its image URN. */
-async function uploadImageAsset(imageUrl: string): Promise<string> {
+async function uploadImageAsset(
+  creds: LinkedInCredentials,
+  imageUrl: string,
+): Promise<string> {
   // 1. Register an upload slot.
-  const registerRes = await liFetch("/images?action=initializeUpload", {
+  const registerRes = await liFetch(creds, "/images?action=initializeUpload", {
     method: "POST",
     body: JSON.stringify({
-      initializeUploadRequest: { owner: env.linkedin.organizationUrn },
+      initializeUploadRequest: { owner: creds.organizationUrn },
     }),
   });
   const registerJson = (await registerRes.json()) as {
@@ -102,7 +118,7 @@ async function uploadImageAsset(imageUrl: string): Promise<string> {
 
   const putRes = await fetch(uploadUrl, {
     method: "PUT",
-    headers: { Authorization: `Bearer ${env.linkedin.accessToken}` },
+    headers: { Authorization: `Bearer ${creds.accessToken}` },
     body: bytes,
   });
   if (!putRes.ok) {
@@ -113,9 +129,12 @@ async function uploadImageAsset(imageUrl: string): Promise<string> {
 }
 
 /** Create a paused single-image sponsored campaign. Returns campaign URN. */
-async function createCampaign(params: LaunchParams): Promise<string> {
+async function createCampaign(
+  creds: LinkedInCredentials,
+  params: LaunchParams,
+): Promise<string> {
   const body = {
-    account: accountUrn(),
+    account: accountUrn(creds),
     name: params.campaignName,
     type: "SPONSORED_UPDATES",
     costType: "CPM",
@@ -130,7 +149,7 @@ async function createCampaign(params: LaunchParams): Promise<string> {
     targetingCriteria: params.audience.targetingCriteria,
   };
 
-  const res = await liFetch("/adCampaigns", {
+  const res = await liFetch(creds, "/adCampaigns", {
     method: "POST",
     body: JSON.stringify(body),
   });
@@ -144,6 +163,7 @@ async function createCampaign(params: LaunchParams): Promise<string> {
 
 /** Create the single-image creative linked to the campaign. */
 async function createCreative(
+  creds: LinkedInCredentials,
   campaignUrn: string,
   imageUrn: string,
   params: LaunchParams,
@@ -154,10 +174,7 @@ async function createCreative(
       spec: {
         content: {
           contentEntities: [
-            {
-              entity: imageUrn,
-              landingPageUrl: params.trackedUrl,
-            },
+            { entity: imageUrn, landingPageUrl: params.trackedUrl },
           ],
           title: params.campaignName,
         },
@@ -166,7 +183,7 @@ async function createCreative(
     intendedStatus: "ACTIVE",
   };
 
-  const res = await liFetch("/creatives", {
+  const res = await liFetch(creds, "/creatives", {
     method: "POST",
     body: JSON.stringify(body),
   });
@@ -179,9 +196,12 @@ async function createCreative(
 }
 
 /** Flip the campaign from PAUSED to ACTIVE — this launches it. */
-async function activateCampaign(campaignUrn: string): Promise<void> {
+async function activateCampaign(
+  creds: LinkedInCredentials,
+  campaignUrn: string,
+): Promise<void> {
   const id = campaignUrn.split(":").pop();
-  await liFetch(`/adCampaigns/${id}`, {
+  await liFetch(creds, `/adCampaigns/${id}`, {
     method: "POST",
     headers: { "X-RestLi-Method": "PARTIAL_UPDATE" },
     body: JSON.stringify({ patch: { $set: { status: "ACTIVE" } } }),

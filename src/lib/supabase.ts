@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { env, isSupabaseConfigured } from "./env";
-import type { CampaignRecord } from "./types";
+import type { CampaignRecord, LinkedInConnection } from "./types";
 
 let cached: SupabaseClient | null = null;
 
@@ -97,6 +97,63 @@ function sanitizeFileName(name: string): string {
 }
 
 /* --- row <-> record mapping (snake_case columns) --- */
+
+/* --- LinkedIn connection persistence --- */
+
+export async function getConnectionRow(
+  userEmail: string,
+): Promise<LinkedInConnection | null> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("linkedin_connections")
+    .select("*")
+    .eq("user_email", userEmail)
+    .maybeSingle();
+  if (error) throw new Error(`Failed to load connection: ${error.message}`);
+  return data ? connectionFromRow(data) : null;
+}
+
+export async function upsertConnectionRow(
+  conn: LinkedInConnection,
+): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  const { error } = await supabase
+    .from("linkedin_connections")
+    .upsert(
+      {
+        user_email: conn.userEmail,
+        access_token: conn.accessToken,
+        refresh_token: conn.refreshToken ?? null,
+        expires_at: conn.expiresAt ?? null,
+        ad_account_id: conn.adAccountId ?? null,
+        organization_urn: conn.organizationUrn ?? null,
+        connected_at: conn.connectedAt ?? new Date().toISOString(),
+      },
+      { onConflict: "user_email" },
+    );
+  if (error) throw new Error(`Failed to save connection: ${error.message}`);
+}
+
+export async function deleteConnectionRow(userEmail: string): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  const { error } = await supabase
+    .from("linkedin_connections")
+    .delete()
+    .eq("user_email", userEmail);
+  if (error) throw new Error(`Failed to disconnect: ${error.message}`);
+}
+
+function connectionFromRow(row: Record<string, any>): LinkedInConnection {
+  return {
+    userEmail: row.user_email,
+    accessToken: row.access_token,
+    refreshToken: row.refresh_token,
+    expiresAt: row.expires_at,
+    adAccountId: row.ad_account_id,
+    organizationUrn: row.organization_urn,
+    connectedAt: row.connected_at,
+  };
+}
 
 function toRow(record: Partial<CampaignRecord>): Record<string, unknown> {
   const row: Record<string, unknown> = {};

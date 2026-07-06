@@ -5,8 +5,11 @@ import {
   insertCampaign,
   updateCampaign as sbUpdateCampaign,
   listCampaigns as sbListCampaigns,
+  getConnectionRow,
+  upsertConnectionRow,
+  deleteConnectionRow,
 } from "./supabase";
-import type { CampaignRecord } from "./types";
+import type { CampaignRecord, LinkedInConnection } from "./types";
 
 /**
  * Persistence facade. Uses Supabase when configured; otherwise falls back to an
@@ -14,9 +17,14 @@ import type { CampaignRecord } from "./types";
  * with zero external services (great for demos / trying the app).
  */
 
-const g = globalThis as unknown as { __campaigns?: CampaignRecord[] };
+const g = globalThis as unknown as {
+  __campaigns?: CampaignRecord[];
+  __connections?: Record<string, LinkedInConnection>;
+};
 g.__campaigns ??= [];
+g.__connections ??= {};
 const memory = g.__campaigns;
+const memoryConnections = g.__connections;
 
 export function usingMemoryStore(): boolean {
   return !isSupabaseConfigured();
@@ -68,4 +76,41 @@ export async function getCampaigns(
     return sbListCampaigns(userEmail);
   }
   return memory.filter((c) => c.userEmail === userEmail);
+}
+
+/* --- LinkedIn connection --- */
+
+export async function getConnection(
+  userEmail: string,
+): Promise<LinkedInConnection | null> {
+  if (isSupabaseConfigured()) return getConnectionRow(userEmail);
+  return memoryConnections[userEmail] ?? null;
+}
+
+export async function saveConnection(
+  conn: LinkedInConnection,
+): Promise<void> {
+  const withDefaults = {
+    ...conn,
+    connectedAt: conn.connectedAt ?? new Date().toISOString(),
+  };
+  if (isSupabaseConfigured()) return upsertConnectionRow(withDefaults);
+  memoryConnections[conn.userEmail] = withDefaults;
+}
+
+/** Merge a partial update into an existing connection. */
+export async function patchConnection(
+  userEmail: string,
+  patch: Partial<LinkedInConnection>,
+): Promise<LinkedInConnection | null> {
+  const existing = await getConnection(userEmail);
+  if (!existing) return null;
+  const merged = { ...existing, ...patch, userEmail };
+  await saveConnection(merged);
+  return merged;
+}
+
+export async function deleteConnection(userEmail: string): Promise<void> {
+  if (isSupabaseConfigured()) return deleteConnectionRow(userEmail);
+  delete memoryConnections[userEmail];
 }

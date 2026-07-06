@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/session";
 import CampaignWizard from "@/components/CampaignWizard";
 import SignOutButton from "@/components/SignOutButton";
+import ConnectionBanner from "@/components/ConnectionBanner";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,8 @@ export default function Home() {
         Upload a creative, choose an audience, set your budget, and launch. Your
         tracking template is appended automatically and every campaign is saved.
       </p>
+
+      <ConnectionBanner />
 
       <CampaignWizard />
     </main>

@@ -133,6 +133,26 @@ utm_source=linkedin&utm_medium=paid-social&utm_campaign={campaign_name}&utm_cont
 Existing query params on the destination URL are preserved; template params win
 on collision so tracking stays deterministic.
 
+## Connecting a LinkedIn account
+
+The app has a **Connect LinkedIn** button (Settings page) that runs the OAuth
+flow and stores each user's token, so people connect their own ad account —
+no token pasting. Real launches require your LinkedIn app to be approved for the
+**Marketing Developer Platform**.
+
+**See [`LINKEDIN_SETUP.md`](./LINKEDIN_SETUP.md) for the full step-by-step**
+(create the app, get Marketing API approval, set the redirect URL, connect).
+
+Credential priority at launch time (`src/lib/credentials.ts`):
+
+1. The signed-in user's OAuth connection (auto-refreshed if expired)
+2. The `LINKEDIN_ACCESS_TOKEN` env fallback (single-account testing)
+3. Neither → **dry-run** (simulated launch)
+
+Relevant routes: `GET /api/linkedin/connect` → `GET /api/linkedin/callback` →
+`/settings` (pick ad account + org). Status is exposed at
+`GET /api/linkedin/status`.
+
 ## Notes on the LinkedIn integration
 
 `src/lib/linkedin.ts` uses the versioned LinkedIn REST API and performs:

@@ -26,6 +26,19 @@ create index if not exists campaigns_created_at_idx
 create index if not exists campaigns_user_email_idx
   on public.campaigns (user_email);
 
+-- Per-user LinkedIn OAuth connection (token + target ad account).
+create table if not exists public.linkedin_connections (
+  user_email text primary key,
+  access_token text not null default '',
+  refresh_token text,
+  expires_at timestamptz,
+  ad_account_id text,
+  organization_urn text,
+  connected_at timestamptz not null default now()
+);
+
+alter table public.linkedin_connections enable row level security;
+
 -- Storage bucket for creative images (public read for ad serving).
 insert into storage.buckets (id, name, public)
 values ('ad-creatives', 'ad-creatives', true)

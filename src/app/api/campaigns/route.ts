@@ -3,6 +3,7 @@ import { campaignInputSchema } from "@/lib/validation";
 import { getAudienceById } from "@/lib/audiences";
 import { appendTrackingTemplate } from "@/lib/tracking";
 import { launchCampaign } from "@/lib/linkedin";
+import { resolveCredentials } from "@/lib/credentials";
 import { createCampaign, patchCampaign, getCampaigns } from "@/lib/store";
 import { env } from "@/lib/env";
 import { getSessionUser } from "@/lib/session";
@@ -97,16 +98,20 @@ export async function POST(request: Request) {
     );
   }
 
-  // 3. Launch on LinkedIn (or simulate in dry-run mode).
+  // 3. Launch on LinkedIn (using the user's connection, or simulate in dry-run).
   try {
-    const result = await launchCampaign({
-      campaignName: input.name,
-      audience,
-      dailyBudget: input.dailyBudget,
-      currency: input.currency,
-      trackedUrl,
-      imageUrl: input.imageUrl,
-    });
+    const creds = await resolveCredentials(user.email);
+    const result = await launchCampaign(
+      {
+        campaignName: input.name,
+        audience,
+        dailyBudget: input.dailyBudget,
+        currency: input.currency,
+        trackedUrl,
+        imageUrl: input.imageUrl,
+      },
+      creds,
+    );
 
     // Re-derive the tracked URL with the real campaign id now that we have one.
     const finalTrackedUrl = appendTrackingTemplate(

@@ -11,6 +11,16 @@ export const env = {
   supabaseBucket: process.env.SUPABASE_STORAGE_BUCKET ?? "ad-creatives",
 
   linkedin: {
+    // --- OAuth app credentials (for the "Connect LinkedIn" button) ---
+    clientId: process.env.LINKEDIN_CLIENT_ID ?? "",
+    clientSecret: process.env.LINKEDIN_CLIENT_SECRET ?? "",
+    // Must exactly match a redirect URL registered on your LinkedIn app.
+    // If empty, it is derived from the incoming request origin.
+    redirectUri: process.env.LINKEDIN_REDIRECT_URI ?? "",
+    scope: process.env.LINKEDIN_SCOPE ?? "r_ads rw_ads r_ads_reporting",
+
+    // --- Optional single-account fallback (skips OAuth; good for testing your
+    //     own account). A per-user connection always takes priority. ---
     accessToken: process.env.LINKEDIN_ACCESS_TOKEN ?? "",
     // Numeric ad account id, e.g. "512345678".
     adAccountId: process.env.LINKEDIN_AD_ACCOUNT_ID ?? "",
@@ -41,10 +51,16 @@ export function isSupabaseAuthConfigured(): boolean {
   return Boolean(env.supabaseUrl && env.supabaseAnonKey);
 }
 
+/** Env-level single-account fallback is fully set. */
 export function isLinkedInConfigured(): boolean {
   return Boolean(
     env.linkedin.accessToken &&
       env.linkedin.adAccountId &&
       env.linkedin.organizationUrn,
   );
+}
+
+/** The OAuth app is configured, so the "Connect LinkedIn" button can work. */
+export function isLinkedInOAuthConfigured(): boolean {
+  return Boolean(env.linkedin.clientId && env.linkedin.clientSecret);
 }

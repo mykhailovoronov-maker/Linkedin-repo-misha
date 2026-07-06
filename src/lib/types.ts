@@ -49,6 +49,17 @@ export interface CampaignRecord extends CampaignInput {
   createdAt?: string;
 }
 
+export interface LinkedInConnection {
+  userEmail: string;
+  accessToken: string;
+  refreshToken?: string | null;
+  /** ISO timestamp when the access token expires. */
+  expiresAt?: string | null;
+  adAccountId?: string | null;
+  organizationUrn?: string | null;
+  connectedAt?: string;
+}
+
 export interface LaunchResult {
   campaignId: string;
   creativeId: string;
