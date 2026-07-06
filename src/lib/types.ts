@@ -37,6 +37,8 @@ export type CampaignStatus =
 
 export interface CampaignRecord extends CampaignInput {
   id?: string;
+  /** Email of the signed-in user who created the campaign. */
+  userEmail: string;
   audienceName: string;
   /** destinationUrl with the tracking template merged in. */
   trackedUrl: string;

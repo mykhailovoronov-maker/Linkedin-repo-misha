@@ -1,43 +1,66 @@
 # LinkedIn Ads Launcher
 
-A small full-stack app that automates launching a LinkedIn Ads campaign. You:
+A small full-stack app that automates launching a LinkedIn Ads campaign, with a
+simple guided flow anyone can use:
 
-1. **Upload or select a creative image**
-2. **Choose a predefined audience**
-3. **Set a daily budget**
-4. **Enter a destination URL**
+1. **Sign in** (authorization form)
+2. **Step 1 — Upload your creative image**
+3. **Step 2 — Choose an audience, set a daily budget, enter a destination URL**
+4. **Step 3 — Review & launch** → campaign launched ✅
 
-…and the app **automatically appends your custom URL tracking template**, **saves
-the campaign to Supabase**, and **launches the campaign** on the LinkedIn
-Marketing API.
+Behind the scenes the app **automatically appends your custom URL tracking
+template**, **saves the campaign to Supabase**, and **launches the campaign** on
+the LinkedIn Marketing API.
 
 Built with Next.js 14 (App Router) + TypeScript + Tailwind + Supabase.
+
+> **Runs with zero setup.** With no environment variables the app starts in
+> **demo mode**: sign in with any email + the access code `demo1234`, campaigns
+> are kept in memory, images become inline data URLs, and launches are
+> simulated. Add Supabase + LinkedIn credentials to make it fully real.
 
 ---
 
 ## How it works
 
 ```
-CampaignForm (client)
-   │  upload image ──────────────▶ POST /api/upload ──▶ Supabase Storage ──▶ public URL
-   │  submit campaign ───────────▶ POST /api/campaigns
+/login  ──▶ POST /api/auth/login|signup  ──▶ signed session cookie
+   │
+   ▼  (guided 3-step wizard)
+CampaignWizard (client)
+   │  upload image ──────────────▶ POST /api/upload ──▶ Supabase Storage / data URL
+   │  launch ────────────────────▶ POST /api/campaigns
+                                        │ 0. require session
                                         │ 1. validate input (zod)
                                         │ 2. append URL tracking template
-                                        │ 3. save draft row to Supabase
+                                        │ 3. save draft (Supabase or in-memory)
                                         │ 4. launch on LinkedIn Marketing API
-                                        │ 5. update row with campaign/creative ids
+                                        │ 5. update record with campaign/creative ids
                                         ▼
                                    { campaign, dryRun }
 ```
+
+## Authorization
+
+- **With Supabase Auth** (`NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY`):
+  real email/password accounts — users can create an account and sign in.
+- **Without it** (demo): any email + the shared `APP_ACCESS_CODE` (default
+  `demo1234`) signs in, so the app is instantly usable by others.
+
+Sessions are stateless HMAC-signed cookies (`APP_SESSION_SECRET`). Every
+campaign is scoped to the signed-in user's email.
 
 Key modules:
 
 | File | Responsibility |
 | --- | --- |
+| `src/components/AuthForm.tsx` | Sign in / create account form |
+| `src/components/CampaignWizard.tsx` | Guided 3-step launch flow |
+| `src/lib/auth.ts` + `src/lib/session.ts` | Credential check + signed session cookie |
 | `src/lib/audiences.ts` | Predefined audiences → LinkedIn targeting criteria |
 | `src/lib/tracking.ts` | Appends the URL tracking template (placeholder substitution + param merge) |
 | `src/lib/linkedin.ts` | LinkedIn Marketing API client (asset upload → campaign → creative → activate) |
-| `src/lib/supabase.ts` | Storage upload + campaign persistence |
+| `src/lib/store.ts` | Persistence facade: Supabase when configured, in-memory otherwise |
 | `src/app/api/campaigns/route.ts` | Orchestrates the whole launch flow |
 
 ## Dry-run mode

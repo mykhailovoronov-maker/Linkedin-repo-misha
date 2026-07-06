@@ -24,10 +24,21 @@ export const env = {
   trackingTemplate:
     process.env.URL_TRACKING_TEMPLATE ??
     "utm_source=linkedin&utm_medium=paid-social&utm_campaign={campaign_name}&utm_content={campaign_id}",
+
+  // Secret used to sign the session cookie. Override in production.
+  sessionSecret:
+    process.env.APP_SESSION_SECRET ?? "dev-insecure-session-secret-change-me",
+  // Shared access code used for demo login when Supabase Auth is not configured.
+  appAccessCode: process.env.APP_ACCESS_CODE ?? "demo1234",
 };
 
 export function isSupabaseConfigured(): boolean {
   return Boolean(env.supabaseUrl && env.supabaseServiceRoleKey);
+}
+
+/** True when we can verify real user credentials via Supabase Auth. */
+export function isSupabaseAuthConfigured(): boolean {
+  return Boolean(env.supabaseUrl && env.supabaseAnonKey);
 }
 
 export function isLinkedInConfigured(): boolean {

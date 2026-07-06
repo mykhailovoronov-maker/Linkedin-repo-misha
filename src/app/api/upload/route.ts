@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { uploadCreativeImage } from "@/lib/supabase";
-import { isSupabaseConfigured } from "@/lib/env";
+import { saveCreativeImage } from "@/lib/store";
+import { getSessionUser } from "@/lib/session";
 
 export const runtime = "nodejs";
 
@@ -8,6 +8,9 @@ const MAX_BYTES = 8 * 1024 * 1024; // 8 MB
 const ALLOWED = ["image/png", "image/jpeg", "image/gif"];
 
 export async function POST(request: Request) {
+  if (!getSessionUser()) {
+    return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+  }
   try {
     const form = await request.formData();
     const file = form.get("file");
@@ -31,18 +34,8 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!isSupabaseConfigured()) {
-      return NextResponse.json(
-        {
-          error:
-            "Supabase storage is not configured. Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.",
-        },
-        { status: 503 },
-      );
-    }
-
     const bytes = await file.arrayBuffer();
-    const url = await uploadCreativeImage(bytes, file.name, file.type);
+    const url = await saveCreativeImage(bytes, file.name, file.type);
     return NextResponse.json({ url });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Upload failed";

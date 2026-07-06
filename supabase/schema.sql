@@ -4,6 +4,7 @@
 create table if not exists public.campaigns (
   id uuid primary key default gen_random_uuid(),
   name text not null,
+  user_email text not null,
   audience_id text not null,
   audience_name text not null,
   daily_budget numeric(12, 2) not null check (daily_budget > 0),
@@ -21,6 +22,9 @@ create table if not exists public.campaigns (
 
 create index if not exists campaigns_created_at_idx
   on public.campaigns (created_at desc);
+
+create index if not exists campaigns_user_email_idx
+  on public.campaigns (user_email);
 
 -- Storage bucket for creative images (public read for ad serving).
 insert into storage.buckets (id, name, public)

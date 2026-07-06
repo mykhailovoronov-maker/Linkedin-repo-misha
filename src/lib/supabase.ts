@@ -75,13 +75,17 @@ export async function updateCampaign(
   }
 }
 
-export async function listCampaigns(): Promise<CampaignRecord[]> {
+export async function listCampaigns(
+  userEmail?: string,
+): Promise<CampaignRecord[]> {
   const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
+  let query = supabase
     .from("campaigns")
     .select("*")
     .order("created_at", { ascending: false })
     .limit(50);
+  if (userEmail) query = query.eq("user_email", userEmail);
+  const { data, error } = await query;
   if (error) {
     throw new Error(`Failed to list campaigns: ${error.message}`);
   }
@@ -97,6 +101,7 @@ function sanitizeFileName(name: string): string {
 function toRow(record: Partial<CampaignRecord>): Record<string, unknown> {
   const row: Record<string, unknown> = {};
   if (record.name !== undefined) row.name = record.name;
+  if (record.userEmail !== undefined) row.user_email = record.userEmail;
   if (record.audienceId !== undefined) row.audience_id = record.audienceId;
   if (record.audienceName !== undefined) row.audience_name = record.audienceName;
   if (record.dailyBudget !== undefined) row.daily_budget = record.dailyBudget;
@@ -118,6 +123,7 @@ function fromRow(row: Record<string, any>): CampaignRecord {
   return {
     id: row.id,
     name: row.name,
+    userEmail: row.user_email,
     audienceId: row.audience_id,
     audienceName: row.audience_name,
     dailyBudget: Number(row.daily_budget),
