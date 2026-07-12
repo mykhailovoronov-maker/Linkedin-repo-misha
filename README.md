@@ -42,13 +42,19 @@ CampaignWizard (client)
 
 ## Authorization
 
-- **With Supabase Auth** (`NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY`):
-  real email/password accounts — users can create an account and sign in.
-- **Without it** (demo): any email + the shared `APP_ACCESS_CODE` (default
-  `demo1234`) signs in, so the app is instantly usable by others.
+Set `APP_AUTH_MODE`:
+
+- **`code`** — one shared access code (`APP_ACCESS_CODE`). Share the link + the
+  code with a small group; anyone with both gets in. Each person still enters
+  their own email, so their campaigns and LinkedIn connection are their own.
+- **`accounts`** — individual email/password accounts via Supabase Auth.
+- **`auto`** (default) — accounts if Supabase Auth is configured, else shared code.
 
 Sessions are stateless HMAC-signed cookies (`APP_SESSION_SECRET`). Every
-campaign is scoped to the signed-in user's email.
+campaign and LinkedIn connection is scoped to the signed-in user's email.
+
+> Sharing with a group? Use `APP_AUTH_MODE=code` and **change
+> `APP_ACCESS_CODE`** from the default before you send the link.
 
 Key modules:
 

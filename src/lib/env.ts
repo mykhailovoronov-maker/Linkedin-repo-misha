@@ -38,9 +38,20 @@ export const env = {
   // Secret used to sign the session cookie. Override in production.
   sessionSecret:
     process.env.APP_SESSION_SECRET ?? "dev-insecure-session-secret-change-me",
-  // Shared access code used for demo login when Supabase Auth is not configured.
+  // Shared access code used for shared-code login.
   appAccessCode: process.env.APP_ACCESS_CODE ?? "demo1234",
+  // How people sign in:
+  //   "code"     — one shared access code (any email + the code). Good for a
+  //                small group you share a link with.
+  //   "accounts" — individual email/password accounts via Supabase Auth.
+  //   "auto"     — accounts if Supabase Auth is configured, else shared code.
+  authMode: (process.env.APP_AUTH_MODE ?? "auto").toLowerCase(),
 };
+
+/** True while the shared access code is still the insecure default. */
+export function usingDefaultAccessCode(): boolean {
+  return env.appAccessCode === "demo1234";
+}
 
 export function isSupabaseConfigured(): boolean {
   return Boolean(env.supabaseUrl && env.supabaseServiceRoleKey);

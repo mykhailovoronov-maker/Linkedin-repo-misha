@@ -4,16 +4,23 @@ import { env, isSupabaseAuthConfigured } from "./env";
 import type { SessionUser } from "./session";
 
 /**
- * Credential verification. When Supabase Auth is configured, real email/password
- * accounts are used. Otherwise the app runs in "demo" mode: any email plus the
- * shared access code (APP_ACCESS_CODE) signs you in, so the whole flow is
- * usable by anyone without provisioning accounts.
+ * Credential verification. Two models, chosen by APP_AUTH_MODE:
+ *   "accounts" — real email/password accounts via Supabase Auth.
+ *   "code"     — any email plus one shared access code (APP_ACCESS_CODE). Good
+ *                for sharing the tool with a small, trusted group by link.
+ *   "auto"     — accounts when Supabase Auth is configured, else shared code.
+ *
+ * In shared-code mode the email still identifies the person, so each user gets
+ * their own campaigns and their own LinkedIn connection.
  */
 
-export type AuthMode = "supabase" | "demo";
+export type AuthMode = "accounts" | "code";
 
 export function authMode(): AuthMode {
-  return isSupabaseAuthConfigured() ? "supabase" : "demo";
+  const setting = env.authMode;
+  if (setting === "code") return "code";
+  if (setting === "accounts") return "accounts";
+  return isSupabaseAuthConfigured() ? "accounts" : "code";
 }
 
 function anonClient() {
@@ -30,7 +37,7 @@ export async function authenticate(
   email: string,
   password: string,
 ): Promise<SessionUser> {
-  if (authMode() === "supabase") {
+  if (authMode() === "accounts") {
     const { data, error } = await anonClient().auth.signInWithPassword({
       email,
       password,
@@ -56,7 +63,7 @@ export async function register(
   email: string,
   password: string,
 ): Promise<RegisterResult> {
-  if (authMode() === "supabase") {
+  if (authMode() === "accounts") {
     const { data, error } = await anonClient().auth.signUp({ email, password });
     if (error) throw new Error(error.message);
     if (data.session && data.user) {

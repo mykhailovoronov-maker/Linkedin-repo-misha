@@ -54,6 +54,23 @@ LinkedIn.
 
 ---
 
+## Sharing the tool with a small group (each launches their own account)
+
+If a few known people will each run campaigns into **their own** ad accounts
+through your shared link, you do **not** need the heavier "Standard tier" review.
+Stay on **Development tier** and add each person to the app:
+
+1. In the developer console open your app → **Team members** tab.
+2. Add each person (by LinkedIn profile) with a role. Development-tier apps can
+   issue tokens for team members, so each of them can click **Connect LinkedIn**
+   in the tool and authorize their own account.
+3. Anyone who logs into the tool but is *not* an app team member can still use
+   everything except a real launch (their launches stay in dry-run until they're
+   added / the app reaches Standard tier).
+
+Apply for **Standard tier** later only if you need to open it to people who
+aren't on your app team.
+
 ## Testing on just your own account (skip OAuth)
 
 If you only want to launch into your own account and already have a token, you

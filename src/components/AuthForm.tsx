@@ -12,11 +12,15 @@ export default function AuthForm() {
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [demo, setDemo] = useState(false);
+  const [showCodeHint, setShowCodeHint] = useState(false);
 
   useEffect(() => {
     fetch("/api/auth/config")
       .then((r) => r.json())
-      .then((d) => setDemo(d.mode === "demo"))
+      .then((d) => {
+        setDemo(d.mode === "code");
+        setShowCodeHint(Boolean(d.usingDefaultCode));
+      })
       .catch(() => undefined);
   }, []);
 
@@ -64,8 +68,18 @@ export default function AuthForm() {
 
       {demo && (
         <div className="mb-4 rounded-lg bg-amber-50 p-3 text-xs text-amber-800">
-          Demo mode — sign in with <strong>any email</strong> and the access
-          code <strong>demo1234</strong>.
+          {showCodeHint ? (
+            <>
+              Sign in with <strong>any email</strong> and the access code{" "}
+              <strong>demo1234</strong>. Set <code>APP_ACCESS_CODE</code> to your
+              own code before sharing.
+            </>
+          ) : (
+            <>
+              Enter your email and the <strong>access code</strong> you were
+              given.
+            </>
+          )}
         </div>
       )}
 
